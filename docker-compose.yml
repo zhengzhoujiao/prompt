@@ -1,0 +1,6 @@
+services:
+  prompt:
+    build: .
+    ports:
+      - "10.255.0.1:38921:8080"
+    restart: unless-stopped
