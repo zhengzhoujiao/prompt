@@ -251,7 +251,12 @@
   .prompt-block { margin-bottom: 20px; }
   .prompt-block-header {
     display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
     margin-bottom: 8px;
+  }
+  .prompt-block-actions {
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
   }
   .prompt-label {
     font-size: 11px; font-weight: 700; letter-spacing: .08em;
@@ -273,6 +278,14 @@
   }
   .copy-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
   .copy-btn.copied { background: #22c55e; color: #fff; border-color: #22c55e; }
+  .try-btn {
+    flex-shrink: 0;
+    padding: 4px 10px; border-radius: 6px; font-size: 11.5px;
+    border: 1px solid var(--primary); background: var(--primary-light);
+    color: var(--primary); cursor: pointer; transition: all .15s;
+  }
+  .try-btn:hover { background: var(--primary); color: #fff; }
+  .try-btn.done { background: #22c55e; color: #fff; border-color: #22c55e; }
 
   .modal-img-wrap { margin-bottom: 20px; }
   .modal-img { width: 100%; border-radius: 10px; display: block; }
@@ -319,6 +332,8 @@
       border-radius: 16px 16px 0 0;
       max-height: 92vh;
     }
+    .prompt-block-header { flex-wrap: wrap; }
+    .prompt-block-actions { margin-left: auto; }
   }
 
   @media (max-width: 400px) {
@@ -380,6 +395,9 @@
 let allData = [];
 let searchQuery = '';
 let activeCat = '__all__';
+
+/** 「复制并尝试」跳转基础地址（完整 URL），将追加 ?prompt= 编码后的正文；请按需修改 */
+const TRY_PROMPT_BASE_URL = 'https://www.bolt-series.com/#/tools/advanced-creation';
 
 // ── Fetch data ──
 async function loadData() {
@@ -554,6 +572,26 @@ async function openModal(uuid) {
       });
     });
   });
+
+  document.querySelectorAll('.try-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const text = btn.dataset.text || '';
+      let target;
+      try {
+        target = new URL(TRY_PROMPT_BASE_URL);
+        target.searchParams.set('prompt', text);
+      } catch (err) {
+        alert('TRY_PROMPT_BASE_URL 无效，请在 index.html 中改为完整 URL（含 http:// 或 https://）');
+        return;
+      }
+      window.open(target.toString(), '_blank', 'noopener,noreferrer');
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = '已复制并打开';
+        btn.classList.add('done');
+        setTimeout(() => { btn.textContent = '复制并尝试'; btn.classList.remove('done'); }, 2200);
+      });
+    });
+  });
 }
 
 function promptBlock(label, text) {
@@ -563,7 +601,10 @@ function promptBlock(label, text) {
     <div class="prompt-block">
       <div class="prompt-block-header">
         <div class="prompt-label">${label}</div>
-        <button class="copy-btn" data-text="${copyData}">复制</button>
+        <div class="prompt-block-actions">
+          <button type="button" class="copy-btn" data-text="${copyData}">复制</button>
+          <button type="button" class="try-btn" data-text="${copyData}">复制并尝试</button>
+        </div>
       </div>
       <div class="prompt-text">${safeText}</div>
     </div>`;
