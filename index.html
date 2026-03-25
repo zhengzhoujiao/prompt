@@ -298,6 +298,49 @@
   }
   .sidebar-mask.open { display: block; }
 
+  /* ── 轻提示弹层（替代 alert） ── */
+  .alert-dialog-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 600;
+    background: rgba(15,20,40,.45);
+    backdrop-filter: blur(3px);
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .alert-dialog-overlay.open { display: flex; }
+  .alert-dialog-sheet {
+    background: var(--surface);
+    border-radius: 16px;
+    width: 100%; max-width: 400px;
+    border: 1px solid var(--border);
+    box-shadow: 0 24px 60px rgba(0,0,0,.18);
+    overflow: hidden;
+  }
+  .alert-dialog-hd {
+    padding: 18px 22px 12px;
+    font-size: 16px; font-weight: 700;
+    color: var(--text);
+  }
+  .alert-dialog-bd {
+    padding: 0 22px 18px;
+    font-size: 14px; line-height: 1.55;
+    color: var(--text);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .alert-dialog-ft {
+    padding: 12px 22px 18px;
+    display: flex; justify-content: flex-end;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .alert-dialog-ok {
+    padding: 8px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    border: none; cursor: pointer;
+    background: var(--primary); color: #fff;
+    transition: opacity .15s;
+  }
+  .alert-dialog-ok:hover { opacity: .92; }
+
   /* ── 移动端适配 ── */
   @media (max-width: 768px) {
     .header {
@@ -391,6 +434,17 @@
   </div>
 </div>
 
+<!-- 提示弹层 -->
+<div class="alert-dialog-overlay" id="alertDialogOverlay" aria-hidden="true">
+  <div class="alert-dialog-sheet" role="alertdialog" aria-modal="true" aria-labelledby="alertDialogTitle" aria-describedby="alertDialogMsg">
+    <div class="alert-dialog-hd" id="alertDialogTitle">提示</div>
+    <div class="alert-dialog-bd" id="alertDialogMsg"></div>
+    <div class="alert-dialog-ft">
+      <button type="button" class="alert-dialog-ok" id="alertDialogOk">知道了</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let allData = [];
 let searchQuery = '';
@@ -398,6 +452,26 @@ let activeCat = '__all__';
 
 /** 「复制并尝试」跳转基础地址（完整 URL），将追加 ?prompt= 编码后的正文；请按需修改 */
 const TRY_PROMPT_BASE_URL = 'https://www.bolt-series.com/#/tools/advanced-creation';
+
+function showAlert(message, title = '提示') {
+  const ov = document.getElementById('alertDialogOverlay');
+  document.getElementById('alertDialogTitle').textContent = title;
+  document.getElementById('alertDialogMsg').textContent = message;
+  ov.classList.add('open');
+  ov.setAttribute('aria-hidden', 'false');
+  document.getElementById('alertDialogOk').focus();
+}
+
+function closeAlert() {
+  const ov = document.getElementById('alertDialogOverlay');
+  ov.classList.remove('open');
+  ov.setAttribute('aria-hidden', 'true');
+}
+
+document.getElementById('alertDialogOk').addEventListener('click', closeAlert);
+document.getElementById('alertDialogOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeAlert();
+});
 
 // ── Fetch data ──
 async function loadData() {
@@ -581,7 +655,7 @@ async function openModal(uuid) {
         target = new URL(TRY_PROMPT_BASE_URL);
         target.searchParams.set('prompt', text);
       } catch (err) {
-        alert('TRY_PROMPT_BASE_URL 无效，请在 index.html 中改为完整 URL（含 http:// 或 https://）');
+        showAlert('TRY_PROMPT_BASE_URL 无效，请在 index.html 中改为完整 URL（含 http:// 或 https://）', '无法打开外链');
         return;
       }
       window.open(target.toString(), '_blank', 'noopener,noreferrer');
@@ -618,7 +692,14 @@ document.getElementById('modalClose').addEventListener('click', closeModal);
 document.getElementById('modalOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeModal();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('alertDialogOverlay').classList.contains('open')) {
+    closeAlert();
+    return;
+  }
+  closeModal();
+});
 
 // ── Search（防抖 300ms）──
 let searchTimer = null;

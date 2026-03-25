@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>提示词管理 · Prompt</title>
+<base href="/prompt/">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #fafbfc;
+    --border: #e5e7eb;
+    --text: #111827;
+    --text-sub: #6b7280;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --primary-soft: #eff6ff;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --success: #059669;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,.06);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,.08);
+    --sidebar-w: 260px;
+    --header-h: 56px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  .app-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    height: var(--header-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px 0 calc(var(--sidebar-w) + 20px);
+  }
+  .app-header h1 {
+    position: absolute; left: 0; width: var(--sidebar-w);
+    padding: 0 20px; font-size: 15px; font-weight: 700;
+    color: var(--text); border-right: 1px solid var(--border); height: 100%;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .app-header h1 span { color: var(--primary); font-weight: 600; }
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    border: 1px solid transparent; cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+  .btn-ghost { background: transparent; color: var(--text-sub); border-color: transparent; }
+  .btn-ghost:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+  .btn-danger { background: var(--danger-soft); color: var(--danger); border-color: #fecaca; }
+  .btn-danger:hover:not(:disabled) { background: #fee2e2; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  .layout { display: flex; padding-top: var(--header-h); min-height: 100vh; }
+
+  .sidebar {
+    position: fixed; top: var(--header-h); left: 0; bottom: 0; width: var(--sidebar-w);
+    background: var(--surface); border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 12px; z-index: 100;
+  }
+  .sidebar-search {
+    width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 13px; margin-bottom: 10px; outline: none; background: var(--surface-2);
+  }
+  .sidebar-search:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.12); background: #fff; }
+  .cat-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    color: var(--text); margin-bottom: 2px; transition: background .12s;
+  }
+  .cat-row:hover { background: var(--surface-2); }
+  .cat-row.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+  .cat-row .n { font-size: 11px; color: var(--text-sub); }
+  .cat-row.active .n { color: var(--primary); opacity: .85; }
+  .sidebar-foot { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+  .main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 28px 48px; min-width: 0; }
+
+  .main-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .main-toolbar .grow { flex: 1; min-width: 120px; }
+  .field-inline { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-sub); }
+  .field-inline input {
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; min-width: 200px; font-size: 13px;
+  }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 12px 16px; background: var(--surface-2);
+    color: var(--text-sub); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fcfcfd; }
+  .td-title { font-weight: 600; color: var(--text); max-width: 220px; }
+  .td-preview { color: var(--text-sub); max-width: 320px; line-height: 1.45; }
+  .td-actions { white-space: nowrap; }
+
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--text-sub); font-size: 14px; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(17,24,39,.35); z-index: 300;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: var(--surface); border-radius: 14px; box-shadow: var(--shadow-lg);
+    width: 100%; max-width: 720px; max-height: min(92vh, 860px); overflow: hidden;
+    display: flex; flex-direction: column; border: 1px solid var(--border);
+  }
+  .modal-hd {
+    padding: 18px 22px; border-bottom: 1px solid var(--border);
+    font-size: 16px; font-weight: 700;
+  }
+  .modal-bd { padding: 18px 22px; overflow-y: auto; flex: 1; }
+  .modal-ft {
+    padding: 14px 22px; border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 10px; background: var(--surface-2);
+  }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group label {
+    display: block; font-size: 12px; font-weight: 600; color: var(--text-sub); margin-bottom: 6px;
+  }
+  .form-group input, .form-group textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 13px; font-family: inherit; outline: none; background: #fff;
+  }
+  .form-group input:focus, .form-group textarea:focus {
+    border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+  }
+  .form-group textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
+  .form-hint { font-size: 11px; color: var(--text-sub); margin-top: 4px; line-height: 1.45; }
+
+  .img-gallery { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+  .img-tile {
+    position: relative; width: 104px; height: 104px; border-radius: 10px; overflow: hidden;
+    border: 1px solid var(--border); background: var(--surface-2); flex-shrink: 0;
+  }
+  .img-tile img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .img-tile .img-del {
+    position: absolute; top: 4px; right: 4px; width: 26px; height: 26px;
+    border: none; border-radius: 6px; background: rgba(0,0,0,.55); color: #fff;
+    font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .img-tile .img-del:hover { background: var(--danger); }
+  .img-tile .img-name {
+    position: absolute; bottom: 0; left: 0; right: 0; font-size: 10px; padding: 4px 6px;
+    background: linear-gradient(transparent, rgba(0,0,0,.65)); color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .img-tile-pending {
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+  .upload-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .upload-row input[type="file"] { font-size: 12px; max-width: 100%; }
+
+  .meta-loading { font-size: 13px; color: var(--text-sub); padding: 8px 0; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--text); color: #fff; padding: 12px 20px; border-radius: 10px;
+    font-size: 13px; z-index: 400; box-shadow: var(--shadow-lg); transition: transform .25s ease;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.ok { background: var(--success); }
+  .toast.bad { background: var(--danger); }
+
+  .link-front { font-size: 12px; color: var(--primary); text-decoration: none; margin-left: 8px; }
+  .link-front:hover { text-decoration: underline; }
+
+  /* 系统级确认 / 输入（替代原生 confirm、prompt） */
+  .dialog-overlay {
+    position: fixed; inset: 0; background: rgba(17,24,39,.4); z-index: 450;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .dialog-overlay.open { opacity: 1; pointer-events: auto; }
+  .dialog-sheet {
+    background: var(--surface); border-radius: 14px; box-shadow: var(--shadow-lg);
+    width: 100%; max-width: 400px; border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .dialog-hd {
+    padding: 16px 20px; font-size: 15px; font-weight: 700;
+    border-bottom: 1px solid var(--border);
+  }
+  .dialog-bd { padding: 18px 20px; font-size: 14px; color: var(--text); line-height: 1.55; }
+  #dialogConfirmMsg { white-space: pre-wrap; word-break: break-word; }
+  .dialog-label {
+    display: block; font-size: 12px; font-weight: 600; color: var(--text-sub); margin-bottom: 8px;
+  }
+  .dialog-input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; outline: none;
+  }
+  .dialog-input:focus {
+    border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+  }
+  .dialog-ft {
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 10px; background: var(--surface-2);
+  }
+
+  @media (max-width: 900px) {
+    :root { --sidebar-w: 220px; }
+    .app-header { padding-left: 16px; }
+    .app-header h1 { font-size: 13px; padding: 0 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>提示词 <span>管理</span></h1>
+  <div class="header-actions">
+    <a class="link-front" href="index.html" target="_blank" rel="noopener">前台浏览</a>
+    <button type="button" class="btn btn-secondary" id="btnReload">重新加载</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <input type="search" class="sidebar-search" id="catFilter" placeholder="筛选分类…" autocomplete="off">
+    <div id="catList"></div>
+    <div class="sidebar-foot">
+      <button type="button" class="btn btn-secondary" style="width:100%" id="btnNewCat">＋ 新建分类</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="main-toolbar">
+      <div class="field-inline grow">
+        <label for="projSearch">搜索</label>
+        <input type="search" id="projSearch" placeholder="标题、作者、预览提示词…">
+      </div>
+      <button type="button" class="btn btn-primary" id="btnNewProj">＋ 新建提示词</button>
+      <button type="button" class="btn btn-danger" id="btnDelCat">删除当前分类</button>
+    </div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>标题</th>
+              <th>作者</th>
+              <th>预览（prompt_local）</th>
+              <th style="width:140px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="projTbody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="emptyProj" style="display:none">该分类下暂无提示词。</div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-hd" id="modalTitle">编辑提示词</div>
+    <div class="modal-bd">
+      <p class="meta-loading" id="metaLoading" style="display:none">正在加载 meta.json…</p>
+
+      <div class="form-group">
+        <label for="fTitle">标题</label>
+        <input type="text" id="fTitle" maxlength="500" placeholder="显示名称">
+      </div>
+      <div class="form-group">
+        <label for="fAuthor">作者</label>
+        <input type="text" id="fAuthor" maxlength="200" placeholder="可选">
+      </div>
+
+      <div class="form-group">
+        <label for="fPreviewPromptOrigin">列表预览 · 原文（写入 prompt_local.json）</label>
+        <textarea id="fPreviewPromptOrigin" placeholder="用于列表、搜索的缩略/预览正文"></textarea>
+        <p class="form-hint">与 meta 中完整提示词可不同；前台卡片与搜索主要用此处。</p>
+      </div>
+      <div class="form-group">
+        <label for="fPreviewPromptCn">列表预览 · 中文（写入 prompt_local.json）</label>
+        <textarea id="fPreviewPromptCn" placeholder="可选"></textarea>
+      </div>
+
+      <div class="form-group" id="grpMetaPrompts" style="display:none">
+        <label for="fMetaPromptOrigin">完整提示词 · 原文（写入 meta.json）</label>
+        <textarea id="fMetaPromptOrigin" placeholder="实际使用的完整提示词"></textarea>
+      </div>
+      <div class="form-group" id="grpMetaPromptsCn" style="display:none">
+        <label for="fMetaPromptCn">完整提示词 · 中文（写入 meta.json）</label>
+        <textarea id="fMetaPromptCn" placeholder="可选"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>预览图</label>
+        <p class="form-hint" id="imgHint"></p>
+        <div class="img-gallery" id="imgGallery"></div>
+        <div class="upload-row">
+          <input type="file" id="imgUpload" accept="image/webp,image/jpeg,image/png,image/gif,image/bmp,image/avif">
+        </div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button type="button" class="btn btn-ghost" id="modalCancel">取消</button>
+      <button type="button" class="btn btn-primary" id="modalOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<div class="dialog-overlay" id="dialogConfirmOverlay" aria-hidden="true">
+  <div class="dialog-sheet" role="alertdialog" aria-modal="true" aria-labelledby="dialogConfirmTitle" aria-describedby="dialogConfirmMsg">
+    <div class="dialog-hd" id="dialogConfirmTitle">确认</div>
+    <div class="dialog-bd" id="dialogConfirmMsg"></div>
+    <div class="dialog-ft">
+      <button type="button" class="btn btn-ghost" id="dialogConfirmCancel">取消</button>
+      <button type="button" class="btn btn-primary" id="dialogConfirmOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-overlay" id="dialogPromptOverlay" aria-hidden="true">
+  <div class="dialog-sheet" role="dialog" aria-modal="true" aria-labelledby="dialogPromptTitle">
+    <div class="dialog-hd" id="dialogPromptTitle">输入</div>
+    <div class="dialog-bd">
+      <label class="dialog-label" id="dialogPromptLabel" for="dialogPromptInput"></label>
+      <input type="text" class="dialog-input" id="dialogPromptInput" autocomplete="off">
+    </div>
+    <div class="dialog-ft">
+      <button type="button" class="btn btn-ghost" id="dialogPromptCancel">取消</button>
+      <button type="button" class="btn btn-primary" id="dialogPromptOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const API = 'api/data';
+  let data = [];
+  let activeCatName = null;
+  let editingUuid = null;
+  let modalMode = 'edit';
+
+  /** @type {Record<string, object>} */
+  let pendingMetaWrites = {};
+
+  /** 当前弹窗：meta 目录、是否 basename 模式、已加载的 meta 对象 */
+  let editSession = {
+    metaPath: '',
+    metaDir: '',
+    imgBasenamesOnly: false,
+    loadedMeta: null
+  };
+  /** 图片列表：basename 或完整相对路径 */
+  let modalImgList = [];
+  /** 已选本地文件、尚未保存上传时的预览（blob URL） */
+  let pendingImageObjectUrl = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  function revokePendingImagePreview() {
+    if (pendingImageObjectUrl) {
+      URL.revokeObjectURL(pendingImageObjectUrl);
+      pendingImageObjectUrl = null;
+    }
+  }
+
+  function clearPendingImageSelection() {
+    revokePendingImagePreview();
+    const input = $('imgUpload');
+    if (input) input.value = '';
+    renderImgGallery();
+  }
+
+  function onImgUploadFilePicked() {
+    revokePendingImagePreview();
+    const input = $('imgUpload');
+    const file = input.files && input.files[0];
+    if (!file) {
+      renderImgGallery();
+      return;
+    }
+    pendingImageObjectUrl = URL.createObjectURL(file);
+    renderImgGallery();
+  }
+
+  let sysConfirmResolve = null;
+  let sysPromptResolve = null;
+
+  function openSysConfirm(message, title = '确认') {
+    return new Promise(resolve => {
+      sysConfirmResolve = resolve;
+      $('dialogConfirmTitle').textContent = title;
+      $('dialogConfirmMsg').textContent = message;
+      $('dialogConfirmOverlay').classList.add('open');
+      $('dialogConfirmOk').focus();
+    });
+  }
+
+  function finishSysConfirm(result) {
+    if (!$('dialogConfirmOverlay').classList.contains('open')) return;
+    $('dialogConfirmOverlay').classList.remove('open');
+    const fn = sysConfirmResolve;
+    sysConfirmResolve = null;
+    if (fn) fn(result);
+  }
+
+  function openSysPrompt(label, defaultValue = '', title = '新建分类') {
+    return new Promise(resolve => {
+      sysPromptResolve = resolve;
+      $('dialogPromptTitle').textContent = title;
+      $('dialogPromptLabel').textContent = label;
+      $('dialogPromptInput').value = defaultValue;
+      $('dialogPromptOverlay').classList.add('open');
+      requestAnimationFrame(() => {
+        $('dialogPromptInput').focus();
+        $('dialogPromptInput').select();
+      });
+    });
+  }
+
+  function finishSysPrompt(value) {
+    if (!$('dialogPromptOverlay').classList.contains('open')) return;
+    $('dialogPromptOverlay').classList.remove('open');
+    const fn = sysPromptResolve;
+    sysPromptResolve = null;
+    if (fn) fn(value);
+  }
+
+  function toast(msg, ok) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.className = 'toast show ' + (ok ? 'ok' : 'bad');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { el.classList.remove('show'); }, 2800);
+  }
+
+  function genUuid() {
+    if (crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '').slice(0, 11);
+    return 'id' + Math.random().toString(36).slice(2, 13);
+  }
+
+  function findCat(name) {
+    return data.find(c => c.name === name);
+  }
+
+  function findProjectIndex(cat, uuid) {
+    return cat.projects.findIndex(p => p.uuid === uuid);
+  }
+
+  function metaDirFromPath(metaPath) {
+    if (!metaPath) return '';
+    const s = String(metaPath).replace(/\\/g, '/');
+    const i = s.lastIndexOf('/');
+    return i <= 0 ? '' : s.slice(0, i);
+  }
+
+  /** 单层文件夹名，禁止路径分隔与非法字符 */
+  function sanitizeMetaSubdir(raw) {
+    let s = String(raw || '').trim();
+    s = s.replace(/\\/g, '/');
+    if (s.includes('/') || s.includes('..')) return '';
+    s = s.replace(/[<>:"|?*\u0000-\u001f]/g, '_').replace(/\s+/g, ' ').trim();
+    if (!s || s === '.' || s === '..') return '';
+    return s.slice(0, 180);
+  }
+
+  function allMetaPathsInData() {
+    const set = new Set();
+    data.forEach(c => c.projects.forEach(p => {
+      if (p.meta_path) set.add(String(p.meta_path).replace(/\\/g, '/'));
+    }));
+    return set;
+  }
+
+  /** 在 downloads/分类名/ 下分配不与现有 meta_path 冲突的目录 */
+  function uniqueMetaPath(catName, subdir) {
+    const used = allMetaPathsInData();
+    let folder = subdir;
+    let n = 2;
+    for (let guard = 0; guard < 1000; guard++) {
+      const metaPath = `downloads/${catName}/${folder}/meta.json`.replace(/\\/g, '/');
+      if (!used.has(metaPath)) {
+        return {
+          metaPath,
+          metaDir: `downloads/${catName}/${folder}`.replace(/\\/g, '/'),
+          folder
+        };
+      }
+      folder = `${subdir}_${n}`;
+      n++;
+    }
+    throw new Error('无法分配唯一子目录');
+  }
+
+  /** 新建条目：资源子目录名 = 标题（清洗后），空标题则用随机占位名 */
+  function metaSubdirFromTitle() {
+    const t = $('fTitle').value.trim();
+    const s = sanitizeMetaSubdir(t);
+    if (s) return s;
+    return '未命名_' + genUuid().slice(0, 8);
+  }
+
+  const PREVIEW_WEBP_NAME = '预览图.webp';
+  /** 与 canvas 导出一致，新建 / 编辑预览图上传共用 */
+  const PREVIEW_WEBP_QUALITY = 0.88;
+
+  function webpCanvasExportSupported() {
+    try {
+      const c = document.createElement('canvas');
+      c.width = 4;
+      c.height = 4;
+      const d = c.toDataURL('image/webp', 0.6);
+      return /^data:image\/webp/i.test(d);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function rasterToWebpBlob(bitmap, quality) {
+    const maxEdge = 4096;
+    let w = bitmap.width;
+    let h = bitmap.height;
+    if (w > maxEdge || h > maxEdge) {
+      const scale = maxEdge / Math.max(w, h);
+      w = Math.round(w * scale);
+      h = Math.round(h * scale);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        b => (b ? resolve(b) : reject(new Error('无法导出 WebP'))),
+        'image/webp',
+        quality
+      );
+    });
+  }
+
+  function imgServeUrl(relPath, cacheBust) {
+    const q = encodeURIComponent(relPath.replace(/\\/g, '/'));
+    let u = `image?path=${q}`;
+    if (cacheBust != null) u += `&_=${cacheBust}`;
+    return u;
+  }
+
+  function normalizeProject(p) {
+    const o = { ...p };
+    if (!o.uuid) o.uuid = genUuid();
+    if (!Array.isArray(o.imgs)) o.imgs = [];
+    if (o.prompt_origin == null) o.prompt_origin = '';
+    if (o.prompt_cn == null) o.prompt_cn = '';
+    if (o.title == null) o.title = '';
+    if (o.author == null) o.author = '';
+    if (o.meta_path == null) o.meta_path = '';
+    return o;
+  }
+
+  function syncFileInputState() {
+    if (modalMode === 'add') {
+      $('imgUpload').disabled = false;
+      return;
+    }
+    const cat = findCat(activeCatName);
+    $('imgUpload').disabled = !cat || !editUploadTargetDir(cat);
+  }
+
+  /**
+   * 编辑时实际上传目录：优先 meta_path 所在目录，否则取首条 imgs 路径的目录。
+   * 与 openModal 填充的 editSession.metaDir 一致，但从当前 data 再算一遍，避免不同步。
+   */
+  function editUploadTargetDir(cat) {
+    if (modalMode !== 'edit' || !editingUuid || !cat) return '';
+    const p = cat.projects.find(x => x.uuid === editingUuid);
+    if (!p) return '';
+    const mp = p.meta_path ? String(p.meta_path).replace(/\\/g, '/') : '';
+    if (mp) return metaDirFromPath(mp);
+    const first = p.imgs && p.imgs[0] ? String(p.imgs[0]).replace(/\\/g, '/') : '';
+    return first ? metaDirFromPath(first) : '';
+  }
+
+  /** 写入 editSession，供上传与展示与 editUploadTargetDir 一致 */
+  function syncEditSessionDirForUpload(cat) {
+    if (modalMode !== 'edit' || !editingUuid || !cat) return;
+    const p = cat.projects.find(x => x.uuid === editingUuid);
+    if (!p) return;
+    const mp = p.meta_path ? String(p.meta_path).replace(/\\/g, '/') : '';
+    if (mp) {
+      editSession.metaPath = mp;
+      editSession.metaDir = metaDirFromPath(mp);
+      editSession.imgBasenamesOnly = true;
+      return;
+    }
+    editSession.metaPath = '';
+    editSession.imgBasenamesOnly = false;
+    const first = p.imgs && p.imgs[0] ? String(p.imgs[0]).replace(/\\/g, '/') : '';
+    editSession.metaDir = first ? metaDirFromPath(first) : '';
+  }
+
+  function renderImgGallery() {
+    const box = $('imgGallery');
+    const hasPending = Boolean(pendingImageObjectUrl);
+    if (!modalImgList.length && !hasPending) {
+      box.innerHTML = '<p class="form-hint" style="margin:0">暂无图片</p>';
+      return;
+    }
+    const bust = Date.now();
+    const showDel = modalMode !== 'edit';
+    const pendingHtml = hasPending
+      ? `<div class="img-tile img-tile-pending">
+        <img src="${escAttr(pendingImageObjectUrl)}" alt="">
+        <button type="button" class="img-del" data-pending-clear title="取消所选图片">×</button>
+        <span class="img-name" title="本地预览">本地预览 · 确定后上传</span>
+      </div>`
+      : '';
+    const listHtml = modalImgList.map((entry, idx) => {
+      const full = editSession.imgBasenamesOnly && editSession.metaDir
+        ? `${editSession.metaDir}/${entry}`
+        : entry;
+      const url = imgServeUrl(full, bust);
+      const name = editSession.imgBasenamesOnly ? entry : entry.split('/').pop();
+      const delBtn = showDel
+        ? `<button type="button" class="img-del" data-idx="${idx}" title="删除">×</button>`
+        : '';
+      return `<div class="img-tile" data-idx="${idx}">
+        <img src="${escAttr(url)}" alt="" loading="lazy" onerror="this.style.opacity=.2">
+        <span class="img-name" title="${escAttr(entry)}">${escHtml(name)}</span>
+        ${delBtn}
+      </div>`;
+    }).join('');
+    box.innerHTML = pendingHtml + listHtml;
+
+    const clearPending = box.querySelector('[data-pending-clear]');
+    if (clearPending) {
+      clearPending.addEventListener('click', e => {
+        e.stopPropagation();
+        clearPendingImageSelection();
+      });
+    }
+    box.querySelectorAll('.img-del[data-idx]').forEach(btn => {
+      btn.addEventListener('click', () => onDeleteImage(+btn.dataset.idx));
+    });
+  }
+
+  function onDeleteImage(idx) {
+    if (modalMode === 'edit') return;
+    const entry = modalImgList[idx];
+    if (entry == null) return;
+    modalImgList.splice(idx, 1);
+    renderImgGallery();
+  }
+
+  /**
+   * 仅处理 #imgUpload 的第一张图：解码 → 压缩为 WebP → 以固定文件名 预览图.webp 上传；
+   * 成功后 modalImgList 仅保留这一张（覆盖原有多图）。
+   */
+  async function uploadPreviewImageAsWebp() {
+    const input = $('imgUpload');
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (!editSession.metaDir) {
+      toast('无法上传图片：缺少项目目录', false);
+      throw new Error('no meta dir');
+    }
+    if (!webpCanvasExportSupported()) {
+      toast('当前浏览器无法导出 WebP，请使用 Chrome / Edge 等', false);
+      throw new Error('no webp');
+    }
+    const d = editSession.metaDir.replace(/\\/g, '/');
+    let blob;
+    const bmp = await createImageBitmap(file);
+    try {
+      blob = await rasterToWebpBlob(bmp, PREVIEW_WEBP_QUALITY);
+    } finally {
+      bmp.close();
+    }
+    const fd = new FormData();
+    fd.append('dir', d);
+    fd.append('file', blob, PREVIEW_WEBP_NAME);
+    const res = await fetch('api/upload', { method: 'POST', body: fd });
+    const text = await res.text();
+    if (!res.ok) {
+      let msg = text;
+      try { msg = JSON.parse(text).error || msg; } catch (_) {}
+      throw new Error(msg || '上传失败');
+    }
+    const j = JSON.parse(text);
+    const name = j.filename || PREVIEW_WEBP_NAME;
+    if (editSession.imgBasenamesOnly) {
+      modalImgList = [name];
+    } else {
+      modalImgList = [`${d}/${name}`];
+    }
+    input.value = '';
+    revokePendingImagePreview();
+    renderImgGallery();
+  }
+
+  async function loadData() {
+    try {
+      const res = await fetch(API);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const raw = await res.json();
+      if (!Array.isArray(raw)) throw new Error('数据格式应为分类数组');
+      data = raw.map(cat => ({
+        ...cat,
+        name: String(cat.name || '未命名分类'),
+        projects: Array.isArray(cat.projects) ? cat.projects.map(normalizeProject) : []
+      }));
+      if (!activeCatName && data.length) activeCatName = data[0].name;
+      if (activeCatName && !findCat(activeCatName)) activeCatName = data[0]?.name || null;
+      pendingMetaWrites = {};
+      renderCats();
+      renderProjects();
+    } catch (e) {
+      toast(String(e.message || e), false);
+    }
+  }
+
+  function syncCategoryNumbers() {
+    data.forEach(cat => {
+      cat.number = Array.isArray(cat.projects) ? cat.projects.length : 0;
+    });
+  }
+
+  async function saveData() {
+    try {
+      syncCategoryNumbers();
+      const paths = Object.keys(pendingMetaWrites);
+      for (const mp of paths) {
+        const res = await fetch(`api/meta?path=${encodeURIComponent(mp)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify(pendingMetaWrites[mp])
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          let msg = text || 'meta 保存失败';
+          try { msg = JSON.parse(text).error || msg; } catch (_) {}
+          throw new Error(`[${mp}] ${msg}`);
+        }
+      }
+      pendingMetaWrites = {};
+
+      const res2 = await fetch(API, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify(data)
+      });
+      const text2 = await res2.text();
+      if (!res2.ok) {
+        let msg = text2 || 'prompt_local 保存失败';
+        try { msg = JSON.parse(text2).error || msg; } catch (_) {}
+        throw new Error(msg);
+      }
+      toast('已保存', true);
+      return true;
+    } catch (e) {
+      toast(String(e.message || e), false);
+      return false;
+    }
+  }
+
+  function renderCats() {
+    const q = ($('catFilter').value || '').trim().toLowerCase();
+    const list = $('catList');
+    let html = '';
+    data.forEach(cat => {
+      const disp = cat.name.replace(/^\d+_/, '');
+      if (q && !cat.name.toLowerCase().includes(q) && !disp.toLowerCase().includes(q)) return;
+      const active = cat.name === activeCatName ? ' active' : '';
+      html += `<div class="cat-row${active}" data-name="${escAttr(cat.name)}">
+        <span>${escHtml(disp)}</span>
+        <span class="n">${cat.projects.length}</span>
+      </div>`;
+    });
+    list.innerHTML = html || '<p style="font-size:12px;color:var(--text-sub);padding:8px">无匹配分类</p>';
+    list.querySelectorAll('.cat-row').forEach(el => {
+      el.addEventListener('click', () => {
+        activeCatName = el.dataset.name;
+        renderCats();
+        renderProjects();
+      });
+    });
+  }
+
+  function getFilteredProjects(cat) {
+    if (!cat) return [];
+    const q = ($('projSearch').value || '').trim().toLowerCase();
+    if (!q) return cat.projects.slice();
+    return cat.projects.filter(p =>
+      (p.title || '').toLowerCase().includes(q) ||
+      (p.author || '').toLowerCase().includes(q) ||
+      (p.prompt_origin || '').toLowerCase().includes(q) ||
+      (p.prompt_cn || '').toLowerCase().includes(q) ||
+      (p.uuid || '').toLowerCase().includes(q)
+    );
+  }
+
+  function renderProjects() {
+    const cat = findCat(activeCatName);
+    const tbody = $('projTbody');
+    const empty = $('emptyProj');
+    if (!cat) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = '请先新建分类或从左侧选择分类。';
+      return;
+    }
+    const rows = getFilteredProjects(cat);
+    empty.style.display = rows.length ? 'none' : 'block';
+    empty.textContent = '该分类下暂无提示词，点击「新建提示词」添加。';
+    tbody.innerHTML = rows.map(p => {
+      const prev = (p.prompt_origin || '').slice(0, 72).replace(/\s+/g, ' ');
+      return `<tr data-uuid="${escAttr(p.uuid)}">
+        <td class="td-title">${escHtml(p.title || '未命名')}</td>
+        <td>${escHtml(p.author || '—')}</td>
+        <td class="td-preview">${escHtml(prev || '—')}${prev.length >= 72 ? '…' : ''}</td>
+        <td class="td-actions">
+          <button type="button" class="btn btn-secondary btn-sm btn-edit">编辑</button>
+          <button type="button" class="btn btn-danger btn-sm btn-del">删除</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('.btn-edit').forEach((btn, i) => {
+      btn.addEventListener('click', () => openModal('edit', rows[i].uuid));
+    });
+    tbody.querySelectorAll('.btn-del').forEach((btn, i) => {
+      btn.addEventListener('click', () => deleteProject(rows[i].uuid));
+    });
+  }
+
+  async function deleteProject(uuid) {
+    const cat = findCat(activeCatName);
+    if (!cat) return;
+    if (!(await openSysConfirm('确定删除该提示词？', '删除提示词'))) return;
+    const idx = findProjectIndex(cat, uuid);
+    if (idx >= 0) {
+      cat.projects.splice(idx, 1);
+      renderCats();
+      renderProjects();
+      if (!(await saveData())) await loadData();
+    }
+  }
+
+  async function openModal(mode, uuid) {
+    const cat = findCat(activeCatName);
+    if (!cat && mode === 'add') {
+      toast('请先选择或新建分类', false);
+      return;
+    }
+    modalMode = mode;
+    editingUuid = uuid || null;
+    const p = mode === 'edit' && uuid ? cat.projects.find(x => x.uuid === uuid) : null;
+
+    $('modalOk').disabled = false;
+    $('modalTitle').textContent = mode === 'add' ? '新建提示词' : '编辑提示词';
+
+    const metaPath = p && p.meta_path ? String(p.meta_path).replace(/\\/g, '/') : '';
+
+    editSession = {
+      metaPath,
+      metaDir: metaDirFromPath(metaPath),
+      imgBasenamesOnly: Boolean(metaPath),
+      loadedMeta: null
+    };
+    modalImgList = [];
+    revokePendingImagePreview();
+    $('imgUpload').value = '';
+    $('metaLoading').style.display = 'none';
+
+    $('fTitle').value = '';
+    $('fAuthor').value = '';
+    $('fPreviewPromptOrigin').value = '';
+    $('fPreviewPromptCn').value = '';
+    $('fMetaPromptOrigin').value = '';
+    $('fMetaPromptCn').value = '';
+    $('grpMetaPrompts').style.display = 'none';
+    $('grpMetaPromptsCn').style.display = 'none';
+
+    if (mode === 'edit' && p) {
+      if (metaPath) {
+        $('grpMetaPrompts').style.display = '';
+        $('grpMetaPromptsCn').style.display = '';
+        $('metaLoading').style.display = 'block';
+        $('modalOk').disabled = true;
+        try {
+          const res = await fetch(`meta?path=${encodeURIComponent(metaPath)}`);
+          if (res.ok) {
+            editSession.loadedMeta = await res.json();
+          } else {
+            editSession.loadedMeta = null;
+            toast('meta.json 读取失败，完整提示词区可为空后自行填写', false);
+          }
+        } catch (_) {
+          editSession.loadedMeta = null;
+        }
+        $('metaLoading').style.display = 'none';
+        $('modalOk').disabled = false;
+        const m = editSession.loadedMeta;
+        $('fTitle').value = (m && m.title != null) ? m.title : (p.title || '');
+        $('fAuthor').value = (m && m.author != null) ? m.author : (p.author || '');
+        $('fPreviewPromptOrigin').value = p.prompt_origin || '';
+        $('fPreviewPromptCn').value = p.prompt_cn || '';
+        $('fMetaPromptOrigin').value = (m && m.prompt_origin != null) ? m.prompt_origin : '';
+        $('fMetaPromptCn').value = (m && m.prompt_cn != null) ? m.prompt_cn : '';
+        if (m && Array.isArray(m.imgs) && m.imgs.length) {
+          modalImgList = m.imgs.map(x => String(x).trim()).filter(Boolean);
+        } else if (p.imgs && p.imgs.length) {
+          const dir = editSession.metaDir;
+          modalImgList = p.imgs.map(full => {
+            const f = String(full).replace(/\\/g, '/');
+            if (dir && f.startsWith(dir + '/')) return f.slice(dir.length + 1);
+            return f.split('/').pop();
+          }).filter(Boolean);
+        }
+      } else {
+        $('fTitle').value = p.title || '';
+        $('fAuthor').value = p.author || '';
+        $('fPreviewPromptOrigin').value = p.prompt_origin || '';
+        $('fPreviewPromptCn').value = p.prompt_cn || '';
+        editSession.imgBasenamesOnly = false;
+        editSession.metaDir = p.imgs && p.imgs[0] ? metaDirFromPath(p.imgs[0]) : '';
+        modalImgList = (p.imgs || []).map(x => String(x).replace(/\\/g, '/')).filter(Boolean);
+      }
+    } else {
+      $('grpMetaPrompts').style.display = '';
+      $('grpMetaPromptsCn').style.display = '';
+      $('fMetaPromptOrigin').value = '';
+      $('fMetaPromptCn').value = '';
+      editSession.loadedMeta = null;
+    }
+
+    {
+      const hint = $('imgHint');
+      hint.style.display = '';
+      hint.textContent =
+        '选图后立即显示本地预览；点「确定」保存时再压缩为 WebP（最大边 4096px，质量 ' +
+        PREVIEW_WEBP_QUALITY +
+        '），固定文件名为「' +
+        PREVIEW_WEBP_NAME +
+        '」。新建条目会先分配目录再上传。';
+    }
+
+    syncFileInputState();
+    renderImgGallery();
+    $('modalOverlay').classList.add('open');
+  }
+
+  function closeModal() {
+    revokePendingImagePreview();
+    $('imgUpload').value = '';
+    $('modalOverlay').classList.remove('open');
+  }
+
+  function buildMetaObject(projectUuid, prevMeta, metaRelDir) {
+    const title = $('fTitle').value.trim();
+    const author = $('fAuthor').value.trim();
+    const prompt_origin = $('fMetaPromptOrigin').value;
+    const prompt_cn = $('fMetaPromptCn').value;
+    const base = (prevMeta && typeof prevMeta === 'object') ? { ...prevMeta } : {};
+    base.uuid = projectUuid;
+    base.title = title;
+    base.author = author;
+    base.prompt_origin = prompt_origin;
+    base.prompt_cn = prompt_cn;
+    const dir = metaRelDir ? String(metaRelDir).replace(/\\/g, '/') : '';
+    base.imgs = dir
+      ? modalImgList.map(b => String(b).replace(/\\/g, '/').split('/').pop()).filter(Boolean)
+      : [];
+    if (typeof base.collections !== 'boolean') base.collections = false;
+    if (typeof base.timestamp !== 'number') base.timestamp = Math.floor(Date.now() / 1000);
+    if (Array.isArray(base.imgs_details) && base.imgs_details.length !== base.imgs.length) {
+      delete base.imgs_details;
+    }
+    return base;
+  }
+
+  async function confirmModal() {
+    const cat = findCat(activeCatName);
+    if (!cat) {
+      toast('无当前分类', false);
+      return;
+    }
+
+    let resolvedMetaPath = '';
+    if (modalMode === 'add') {
+      const sub = metaSubdirFromTitle();
+      let u;
+      try {
+        u = uniqueMetaPath(cat.name, sub);
+      } catch (e) {
+        toast(String(e.message || e), false);
+        return;
+      }
+      resolvedMetaPath = u.metaPath;
+      editSession.metaDir = u.metaDir;
+      editSession.imgBasenamesOnly = true;
+      if (u.folder !== sub) {
+        toast(`目录「${sub}」已占用，已使用「${u.folder}」`, true);
+      }
+    }
+
+    const listBackup = [...modalImgList];
+    const okBtn = $('modalOk');
+    okBtn.disabled = true;
+    try {
+      if (modalMode === 'edit') {
+        syncEditSessionDirForUpload(cat);
+      }
+      const input = $('imgUpload');
+      if (input.files && input.files.length) {
+        try {
+          await uploadPreviewImageAsWebp();
+        } catch (e) {
+          modalImgList = listBackup;
+          renderImgGallery();
+          const msg = e && e.message;
+          if (msg === 'no meta dir') {
+            toast('无法上传图片：当前条目没有可用的资源目录（需要 meta_path 或已有图片路径）', false);
+          } else {
+            toast(String(msg || e), false);
+          }
+          return;
+        }
+      }
+
+      let metaPath = '';
+      if (modalMode === 'edit') {
+        const p = cat.projects.find(x => x.uuid === editingUuid);
+        metaPath = p && p.meta_path ? String(p.meta_path).replace(/\\/g, '/') : '';
+      } else if (modalMode === 'add') {
+        metaPath = resolvedMetaPath;
+      }
+
+      const title = $('fTitle').value.trim();
+      const author = $('fAuthor').value.trim();
+      const prompt_origin = $('fPreviewPromptOrigin').value;
+      const prompt_cn = $('fPreviewPromptCn').value;
+
+      let projectUuid;
+      if (modalMode === 'add') {
+        projectUuid = genUuid();
+        const allUuids = new Set();
+        data.forEach(c => c.projects.forEach(pr => { if (pr.uuid) allUuids.add(pr.uuid); }));
+        while (allUuids.has(projectUuid)) projectUuid = genUuid();
+      } else {
+        projectUuid = editingUuid;
+      }
+
+      const dir = metaDirFromPath(metaPath);
+      const imgsFull = dir
+        ? modalImgList.map(b => {
+            const s = String(b).replace(/\\/g, '/').trim();
+            if (!s) return '';
+            return s.includes('/') ? s : `${dir}/${s}`;
+          }).filter(Boolean)
+        : modalImgList.map(x => String(x).replace(/\\/g, '/').trim()).filter(Boolean);
+
+      const proj = normalizeProject({
+        uuid: projectUuid,
+        title,
+        author,
+        prompt_origin,
+        prompt_cn,
+        imgs: imgsFull,
+        meta_path: metaPath || undefined
+      });
+      if (!metaPath) delete proj.meta_path;
+
+      const ts = Math.floor(Date.now() / 1000);
+      let editRowBackup = null;
+
+      if (modalMode === 'add') {
+        Object.assign(proj, {
+          public: true,
+          role: 'system',
+          title_order: ts,
+          collections: true,
+          timestamp: ts,
+          imgs_details: []
+        });
+        cat.projects.push(proj);
+      } else {
+        const idx = findProjectIndex(cat, editingUuid);
+        if (idx < 0) {
+          toast('找不到原记录', false);
+          return;
+        }
+        editRowBackup = JSON.parse(JSON.stringify(cat.projects[idx]));
+        const old = cat.projects[idx];
+        const merged = { ...old, ...proj };
+        const imgsChanged = JSON.stringify(old.imgs || []) !== JSON.stringify(proj.imgs || []);
+        if (imgsChanged) delete merged.imgs_details;
+        cat.projects[idx] = merged;
+      }
+
+      let pendingMetaBackup = null;
+      if (metaPath) {
+        pendingMetaBackup = Object.prototype.hasOwnProperty.call(pendingMetaWrites, metaPath)
+          ? pendingMetaWrites[metaPath]
+          : undefined;
+        const prev = editSession.loadedMeta;
+        pendingMetaWrites[metaPath] = buildMetaObject(projectUuid, prev, dir);
+      }
+
+      const saved = await saveData();
+      if (!saved) {
+        if (modalMode === 'add') {
+          const ix = findProjectIndex(cat, projectUuid);
+          if (ix >= 0) cat.projects.splice(ix, 1);
+        } else if (editRowBackup) {
+          const idx = findProjectIndex(cat, editingUuid);
+          if (idx >= 0) cat.projects[idx] = editRowBackup;
+        }
+        if (metaPath) {
+          if (pendingMetaBackup !== undefined) pendingMetaWrites[metaPath] = pendingMetaBackup;
+          else delete pendingMetaWrites[metaPath];
+        }
+        return;
+      }
+
+      closeModal();
+      renderCats();
+      renderProjects();
+    } finally {
+      okBtn.disabled = false;
+    }
+  }
+
+  async function newCategory() {
+    const name = await openSysPrompt(
+      '分类名称',
+      '',
+      '新建分类'
+    );
+    if (name == null) return;
+    if (!String(name).trim()) return;
+    const n = String(name).trim();
+    if (data.some(c => c.name === n)) {
+      toast('分类名已存在', false);
+      return;
+    }
+    data.push({ name: n, projects: [], number: 0 });
+    activeCatName = n;
+    renderCats();
+    renderProjects();
+    if (!(await saveData())) await loadData();
+  }
+
+  async function deleteCategory() {
+    const cat = findCat(activeCatName);
+    if (!cat) return;
+    const msg = `确定删除整个分类「${cat.name}」及其下 ${cat.projects.length} 条提示词？`;
+    if (!(await openSysConfirm(msg, '删除分类'))) return;
+    data = data.filter(c => c.name !== cat.name);
+    activeCatName = data[0]?.name || null;
+    renderCats();
+    renderProjects();
+    if (!(await saveData())) await loadData();
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function escAttr(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  }
+
+  $('btnReload').addEventListener('click', async () => {
+    if ($('modalOverlay').classList.contains('open')) {
+      if (!(await openSysConfirm('编辑弹窗未关闭，重新加载将丢弃未点「确定」的修改。是否继续？', '重新加载'))) return;
+    }
+    loadData();
+  });
+  $('btnNewCat').addEventListener('click', newCategory);
+  $('btnNewProj').addEventListener('click', () => openModal('add'));
+  $('btnDelCat').addEventListener('click', deleteCategory);
+  $('catFilter').addEventListener('input', renderCats);
+  let searchTimer;
+  $('projSearch').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderProjects, 200);
+  });
+
+  $('modalCancel').addEventListener('click', closeModal);
+  $('imgUpload').addEventListener('change', () => { onImgUploadFilePicked(); });
+  $('modalOk').addEventListener('click', () => { void confirmModal(); });
+  $('modalOverlay').addEventListener('click', e => { if (e.target === $('modalOverlay')) closeModal(); });
+
+  $('dialogConfirmOk').addEventListener('click', () => finishSysConfirm(true));
+  $('dialogConfirmCancel').addEventListener('click', () => finishSysConfirm(false));
+  $('dialogConfirmOverlay').addEventListener('click', e => {
+    if (e.target === $('dialogConfirmOverlay')) finishSysConfirm(false);
+  });
+
+  $('dialogPromptOk').addEventListener('click', () => {
+    finishSysPrompt($('dialogPromptInput').value);
+  });
+  $('dialogPromptCancel').addEventListener('click', () => finishSysPrompt(null));
+  $('dialogPromptOverlay').addEventListener('click', e => {
+    if (e.target === $('dialogPromptOverlay')) finishSysPrompt(null);
+  });
+  $('dialogPromptInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      finishSysPrompt($('dialogPromptInput').value);
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if ($('dialogConfirmOverlay').classList.contains('open')) {
+      finishSysConfirm(false);
+      return;
+    }
+    if ($('dialogPromptOverlay').classList.contains('open')) {
+      finishSysPrompt(null);
+      return;
+    }
+    closeModal();
+  });
+
+  loadData();
+})();
+</script>
+</body>
+</html>
