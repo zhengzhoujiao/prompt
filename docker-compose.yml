@@ -1,6 +1,21 @@
+# =============================================================================
+# Prompt 子项目编排文件
+#
+# 生产模式：加入共享网络 bolt_net，主站 nginx 通过容器名 prompt:8080 访问。
+#   启动前请确保 COWebsite/docker-compose.yml 已先启动（bolt_net 网络由其创建）。
+# =============================================================================
+
 services:
   prompt:
     build: .
-    ports:
-      - "10.255.0.1:38921:8080"
+    container_name: bolt_prompt
     restart: unless-stopped
+    expose:
+      - "8080"   # 仅对 bolt_net 内部可见，不映射到宿主机
+    networks:
+      - bolt_net
+
+networks:
+  bolt_net:
+    external: true   # 由 COWebsite/docker-compose.yml 负责创建
+    name: bolt_net
